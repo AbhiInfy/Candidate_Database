@@ -246,6 +246,22 @@ def wait_for_manual_login(page):
     print("Log in to Naukri manually if you are not already logged in.")
     print("When login is complete, return here and press Enter.")
     input()
+    try:
+        page.wait_for_load_state("networkidle", timeout=15000)
+    except Exception:
+        pass
+
+
+def goto_with_retry(page, url: str, timeout: int = 60000):
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+    except Exception as exc:
+        message = str(exc).lower()
+        if "interrupted by another navigation" not in message and "navigation" not in message:
+            raise
+
+        page.wait_for_load_state("networkidle", timeout=15000)
+        page.goto(url, wait_until="domcontentloaded", timeout=timeout)
 
 
 def run_agent(args):
@@ -275,7 +291,7 @@ def run_agent(args):
         for page_number in range(1, args.pages + 1):
             url = search_url(args.keyword, page_number)
             print(f"Scanning page {page_number}: {url}")
-            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            goto_with_retry(page, url)
             page.wait_for_timeout(3500)
 
             jobs = extract_jobs(page, args.max_age_hours)
